@@ -1,0 +1,25 @@
+name: Update Docker Hub Description
+
+on:
+  push:
+    paths:
+      - 'README.md'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-description:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/alpine-s6-overlay
+          short-description: "Lightweight Alpine + s6-overlay base image with automated updates and multi-arch support."
+          readme-filepath: ./README.md
