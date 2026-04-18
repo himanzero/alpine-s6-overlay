@@ -1,0 +1,56 @@
+name: Check for updates
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get latest Alpine version
+        id: alpine
+        run: |
+          LATEST_ALPINE=$(curl -s https://alpinelinux.org/releases.json | jq -r '.release_branches[-1].releases[0].version')
+          echo "latest=$LATEST_ALPINE" >> $GITHUB_OUTPUT
+
+      - name: Get latest s6-overlay version
+        id: s6
+        run: |
+          LATEST_S6=$(curl -s https://api.github.com/repos/just-containers/s6-overlay/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          echo "latest=$LATEST_S6" >> $GITHUB_OUTPUT
+
+      - name: Update versions.json
+        id: update
+        run: |
+          ALPINE_CURRENT=$(jq -r '.alpine' versions.json)
+          S6_CURRENT=$(jq -r '.s6_overlay' versions.json)
+          
+          ALPINE_LATEST=${{ steps.alpine.outputs.latest }}
+          S6_LATEST=${{ steps.s6.outputs.latest }}
+          
+          if [ "$ALPINE_CURRENT" != "$ALPINE_LATEST" ] || [ "$S6_CURRENT" != "$S6_LATEST" ]; then
+            echo "Updates found!"
+            jq ".alpine = \"$ALPINE_LATEST\" | .s6_overlay = \"$S6_LATEST\"" versions.json > versions.json.tmp && mv versions.json.tmp versions.json
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "alpine_ver=$ALPINE_LATEST" >> $GITHUB_OUTPUT
+            echo "s6_ver=$S6_LATEST" >> $GITHUB_OUTPUT
+          else
+            echo "No updates found."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions.json
+          git commit -m "Update versions: Alpine ${{ steps.update.outputs.alpine_ver }}, s6-overlay ${{ steps.update.outputs.s6_ver }}"
+          git push

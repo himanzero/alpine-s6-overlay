@@ -1,0 +1,74 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    paths:
+      - 'versions.json'
+      - 'Dockerfile'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get versions
+        id: vars
+        run: |
+          ALPINE_VER=$(jq -r '.alpine' versions.json)
+          S6_VER=$(jq -r '.s6_overlay' versions.json)
+          echo "alpine=$ALPINE_VER" >> $GITHUB_OUTPUT
+          echo "s6=$S6_VER" >> $GITHUB_OUTPUT
+          echo "full_tag=${ALPINE_VER}_${S6_VER}" >> $GITHUB_OUTPUT
+
+      - name: Build and push multi-arch
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            ALPINE_VERSION=${{ steps.vars.outputs.alpine }}
+            S6_OVERLAY_VERSION=${{ steps.vars.outputs.s6 }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/alpine-s6-overlay:${{ steps.vars.outputs.full_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/alpine-s6-overlay:latest
+
+      # User specifically asked about architecture-specific tags
+      - name: Build and push amd64 only
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            ALPINE_VERSION=${{ steps.vars.outputs.alpine }}
+            S6_OVERLAY_VERSION=${{ steps.vars.outputs.s6 }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/alpine-s6-overlay:${{ steps.vars.outputs.full_tag }}-amd64
+
+      - name: Build and push arm64 only
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            ALPINE_VERSION=${{ steps.vars.outputs.alpine }}
+            S6_OVERLAY_VERSION=${{ steps.vars.outputs.s6 }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/alpine-s6-overlay:${{ steps.vars.outputs.full_tag }}-arm64
