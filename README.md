@@ -43,9 +43,10 @@ Inside your service directory (e.g., `/etc/s6-overlay/s6-rc.d/my-service/`), cre
 ### 3. Service Logic
 - **For `oneshot`**: Create an executable file named `up`.
   ```bash
-  #!/bin/sh
-  echo "Performing initialization..."
+  /bin/echo "Performing initialization..."
   ```
+  > [!IMPORTANT]
+  > **Crucial Note**: The `up` file is parsed by `execlineb`, not a standard shell. It **must** be a one-line command.
 - **For `longrun`**: Create an executable file named `run`.
   ```bash
   #!/bin/sh
