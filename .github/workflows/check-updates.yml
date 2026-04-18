@@ -19,7 +19,11 @@ jobs:
       - name: Get latest Alpine version
         id: alpine
         run: |
-          LATEST_ALPINE=$(curl -s https://alpinelinux.org/releases.json | jq -r '.release_branches[-1].releases[0].version')
+          LATEST_ALPINE=$(curl -s "https://registry.hub.docker.com/v2/repositories/library/alpine/tags?page_size=100" | \
+            jq -r '.results[].name' | \
+            grep -E "^[0-9]+\.[0-9]+(\.[0-9]+)?$" | \
+            sort -V | \
+            tail -n 1)
           echo "latest=$LATEST_ALPINE" >> $GITHUB_OUTPUT
 
       - name: Get latest s6-overlay version
