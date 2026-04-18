@@ -1,11 +1,11 @@
-# --- 第一阶段：下载与准备 ---
-# 默认版本（构建时会被 GitHub Actions 的 --build-arg 覆盖）
+# --- Stage 1: Download and Prepare ---
+# Default version (overwritten by GitHub Actions --build-arg during build)
 ARG ALPINE_VERSION=latest
 FROM alpine:${ALPINE_VERSION} AS preparer
 
-# 默认版本（构建时会被 GitHub Actions 的 --build-arg 覆盖）
+# Default version (overwritten by GitHub Actions --build-arg during build)
 ARG S6_OVERLAY_VERSION=3.2.2.0
-# 自动适配架构 (x86_64 -> x86_64, arm64 -> aarch64)
+# Auto-adapt architecture (x86_64 -> x86_64, arm64 -> aarch64)
 ARG TARGETARCH
 
 RUN apk add --no-cache curl xz
@@ -21,12 +21,12 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then ARCH="x86_64"; \
     tar -C /s6-install -Jxpf s6-overlay-noarch.tar.xz && \
     tar -C /s6-install -Jxpf s6-overlay-${ARCH}.tar.xz
 
-# --- 第二阶段：最终镜像 ---
+# --- Stage 2: Final Image ---
 FROM alpine:${ALPINE_VERSION}
 
-# 从 preparer 阶段只把解压好的二进制文件“偷”过来
+# Copy the extracted binaries from the preparer stage
 COPY --from=preparer /s6-install/ /
 
-# 此时你的镜像里没有 curl，没有 xz，没有 tar 包，只有 s6 本身
-# 且只增加了一层极为干净的 COPY 层
+# No curl, no xz, no tarballs in the final image, just s6 itself
+# Only adds one clean COPY layer
 ENTRYPOINT ["/init"]
