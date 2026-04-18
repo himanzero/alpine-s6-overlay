@@ -19,17 +19,16 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then ARCH="x86_64"; \
     curl -L -O https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${ARCH}.tar.xz && \
     mkdir /s6-install && \
     tar -C /s6-install -Jxpf s6-overlay-noarch.tar.xz && \
-    tar -C /s6-install -Jxpf s6-overlay-${ARCH}.tar.xz
+    tar -C /s6-install -Jxpf s6-overlay-${ARCH}.tar.xz && \
+    # Final cleanup: Remove the problematic internal user2 reference if it exists.
+    # This avoids 's6-rc-compile: fatal: undefined service name user2' error.
+    rm -f /s6-install/package/admin/s6-overlay-*/etc/s6-rc/sources/top/contents.d/user2 || true
 
 # --- Stage 2: Final Image ---
 FROM alpine:${ALPINE_VERSION}
 
-# Copy the extracted binaries from the preparer stage
+# Copy the extracted and cleaned binaries from the preparer stage
 COPY --from=preparer /s6-install/ /
-
-# Final cleanup: Remove the problematic internal user2 reference if it exists.
-# This avoids 's6-rc-compile: fatal: undefined service name user2' error.
-RUN rm -f /package/admin/s6-overlay-*/etc/s6-rc/sources/top/contents.d/user2 || true
 
 # No curl, no xz, no tarballs in the final image, just s6 itself
 # Only adds one clean COPY layer
